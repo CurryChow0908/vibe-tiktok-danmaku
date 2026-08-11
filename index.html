@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibe Danmaku TikTok Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --glass: rgba(18, 18, 22, 0.32);
+        --line: rgba(255, 255, 255, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(255, 60, 108, 0.16), transparent 32%),
+          radial-gradient(circle at 82% 78%, rgba(0, 216, 255, 0.14), transparent 34%),
+          #07070a;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .phone-wrap {
+        width: min(417px, calc(100vw - 24px), calc((100vh - 24px) * 417 / 876));
+        height: min(876px, calc(100vh - 24px), calc((100vw - 24px) * 876 / 417));
+        position: relative;
+        border-radius: 56px;
+        padding: 12px;
+        background: linear-gradient(145deg, #2b2d34, #08090d 48%, #343640);
+        box-shadow:
+          0 34px 120px rgba(0, 0, 0, 0.72),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+      }
+
+      .phone-wrap::before,
+      .phone-wrap::after {
+        content: "";
+        position: absolute;
+        left: -4px;
+        width: 3px;
+        border-radius: 999px;
+        background: linear-gradient(#555a66, #17191f);
+      }
+
+      .phone-wrap::before {
+        top: 132px;
+        height: 64px;
+      }
+
+      .phone-wrap::after {
+        top: 214px;
+        height: 92px;
+      }
+
+      .power-key {
+        position: absolute;
+        right: -4px;
+        top: 188px;
+        width: 3px;
+        height: 96px;
+        border-radius: 999px;
+        background: linear-gradient(#555a66, #17191f);
+      }
+
+      .screen {
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        border-radius: 44px;
+        background: #000;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        touch-action: none;
+        user-select: none;
+      }
+
+      .notch {
+        position: absolute;
+        top: 11px;
+        left: 50%;
+        z-index: 30;
+        width: 126px;
+        height: 37px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.92);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.42);
+      }
+
+      .feed {
+        height: 100%;
+        transform: translate3d(0, 0, 0);
+        transition: transform 560ms cubic-bezier(0.2, 0.92, 0.1, 1);
+      }
+
+      .ui-feed {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        pointer-events: none;
+        transform: translate3d(0, 0, 0);
+        transition: transform 560ms cubic-bezier(0.2, 0.92, 0.1, 1);
+      }
+
+      .ui-card {
+        position: relative;
+        height: 100%;
+      }
+
+      .danmaku-form {
+        pointer-events: auto;
+      }
+
+      .comment-trigger {
+        pointer-events: auto;
+      }
+
+      .comment-sheet {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 45;
+        height: 62%;
+        color: #15161a;
+        background: rgba(255, 255, 255, 0.96);
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -22px 60px rgba(0, 0, 0, 0.42);
+        transform: translateY(108%);
+        transition: transform 360ms cubic-bezier(0.2, 0.92, 0.16, 1);
+        overflow: hidden;
+      }
+
+      .comment-sheet.open {
+        transform: translateY(0);
+      }
+
+      .comment-backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 44;
+        background: rgba(0, 0, 0, 0.22);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 260ms ease;
+      }
+
+      .comment-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .comment-list {
+        height: calc(100% - 106px);
+        overflow: auto;
+        padding: 12px 16px 88px;
+      }
+
+      .comment-avatar {
+        width: 36px;
+        height: 36px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #d7f0ff, #353846 58%, #ff8fb3);
+      }
+
+      .badge-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        margin-left: 4px;
+        vertical-align: -3px;
+      }
+
+      .comment-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        font-weight: 850;
+      }
+
+      .comment-name.hot {
+        color: #f04438;
+        text-shadow: 0 0 10px rgba(240, 68, 56, .22);
+      }
+
+      .comment-name.beauty {
+        color: #d946b8;
+        text-shadow: 0 0 10px rgba(217, 70, 184, .2);
+      }
+
+      .comment-name.shop {
+        color: #b7791f;
+        text-shadow: 0 0 9px rgba(183, 121, 31, .2);
+      }
+
+      .comment-form {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: #f1f1f4;
+      }
+
+      .video-card {
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        background: #050506;
+      }
+
+      .video-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        transform: none;
+        background:
+          var(--scene-tint, transparent),
+          var(--scene);
+        background-size: cover;
+        background-position: var(--scene-position, center);
+        filter: saturate(1.04);
+      }
+
+      .video-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.05) 22%, transparent 60%, rgba(0, 0, 0, 0.72)),
+          linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent 42%, rgba(0, 0, 0, 0.18));
+      }
+
+      .glass {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: var(--glass);
+        backdrop-filter: blur(18px) saturate(1.25);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+      }
+
+      .status-bar {
+        height: 42px;
+        padding: 0 18px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+      }
+
+      .status-right {
+        justify-self: end;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .cellular {
+        display: flex;
+        align-items: end;
+        gap: 2px;
+        height: 13px;
+      }
+
+      .cellular i {
+        width: 3px;
+        border-radius: 2px;
+        background: #fff;
+      }
+
+      .wifi-icon path {
+        stroke: #fff;
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        fill: none;
+      }
+
+      .battery {
+        position: relative;
+        width: 27px;
+        height: 13px;
+        border: 1.8px solid #fff;
+        border-radius: 4px;
+      }
+
+      .battery::before {
+        content: "";
+        position: absolute;
+        inset: 2px 6px 2px 2px;
+        border-radius: 2px;
+        background: #fff;
+      }
+
+      .battery::after {
+        content: "";
+        position: absolute;
+        right: -4px;
+        top: 3.5px;
+        width: 2px;
+        height: 5px;
+        border-radius: 0 2px 2px 0;
+        background: rgba(255, 255, 255, 0.85);
+      }
+
+      .top-tabs {
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      }
+
+      .top-tabs .active::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -11px;
+        width: 34px;
+        height: 3px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #fff;
+      }
+
+      .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 999px;
+        color: white;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.48));
+      }
+
+      .avatar {
+        width: 52px;
+        height: 52px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 52% 32%, #fff 0 8%, transparent 9%),
+          radial-gradient(circle at 45% 36%, #1b1b21 0 24%, transparent 25%),
+          conic-gradient(from 140deg, #fff, #e9efff, #0e0e13, #fff);
+      }
+
+      .follow-plus {
+        position: absolute;
+        left: 50%;
+        bottom: -10px;
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #ff2d62;
+        color: #fff;
+        font-weight: 900;
+        box-shadow: 0 4px 14px rgba(255, 45, 98, 0.5);
+      }
+
+      .record {
+        position: relative;
+        background:
+          radial-gradient(circle, #d9d9df 0 12%, #20212a 13% 25%, #050506 26% 42%, #2f313b 43% 47%, #070708 48%);
+        animation: spin 5s linear infinite;
+      }
+
+      .record::after {
+        content: "";
+        width: 19px;
+        height: 19px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ffcf5d, #ff4d8f, #00d8ff);
+      }
+
+      .desc {
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75);
+      }
+
+      .danmaku-toggle {
+        pointer-events: auto;
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(18, 18, 22, 0.44);
+        backdrop-filter: blur(18px) saturate(1.25);
+        -webkit-backdrop-filter: blur(18px) saturate(1.25);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+        color: #fff;
+        font-size: 24px;
+        font-weight: 950;
+        line-height: 1;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.48);
+        transition: opacity 160ms ease, transform 160ms ease, background 160ms ease;
+      }
+
+      .danmaku-toggle:active {
+        transform: scale(0.94);
+      }
+
+      .danmaku-toggle.is-off {
+        opacity: 0.54;
+        background: rgba(18, 18, 22, 0.66);
+      }
+
+      .music-scroll {
+        max-width: 248px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .music-scroll span {
+        display: inline-block;
+        padding-left: 100%;
+        animation: marquee 8s linear infinite;
+      }
+
+      .bottom-nav {
+        box-shadow: 0 -16px 44px rgba(0, 0, 0, 0.36);
+      }
+
+      .plus-box {
+        width: 50px;
+        height: 34px;
+        border-radius: 12px;
+        border: 2px solid #fff;
+        box-shadow: -4px 0 #00e5ff, 4px 0 #ff2d62;
+      }
+
+      .danmaku-layer,
+      .fx-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .fx-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 11;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      .fx-overlay.hot {
+        animation: bottomIgnite 1800ms cubic-bezier(0.16, 0.84, 0.24, 1);
+      }
+
+      .fx-overlay.beauty {
+        animation: bloom 520ms ease-out;
+      }
+
+      .input-shell {
+        transition: border-color 200ms ease, background 200ms ease;
+      }
+
+      .input-shell:focus-within {
+        border-color: rgba(255, 255, 255, 0.45);
+        background: rgba(255, 255, 255, 0.13);
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes marquee {
+        to { transform: translateX(-100%); }
+      }
+
+      @keyframes bottomIgnite {
+        0% { opacity: 0; background: linear-gradient(to top, rgba(255, 82, 40, 0), transparent 42%); }
+        18% { opacity: 1; background: linear-gradient(to top, rgba(255, 82, 40, .18), transparent 48%); }
+        70% { opacity: .92; background: linear-gradient(to top, rgba(255, 82, 40, .12), transparent 54%); }
+        100% { opacity: 0; background: linear-gradient(to top, rgba(255, 82, 40, 0), transparent 60%); }
+      }
+
+      @keyframes bloom {
+        0% { opacity: 0; background: rgba(255, 190, 154, 0); filter: blur(0); }
+        28% { opacity: 1; background: rgba(255, 190, 154, 0.2); filter: blur(8px); }
+        100% { opacity: 0; background: rgba(255, 190, 154, 0); filter: blur(0); }
+      }
+
+    </style>
+  </head>
+  <body class="grid min-h-screen place-items-center p-3 text-white">
+    <main class="phone-wrap">
+      <span class="power-key"></span>
+      <section id="screen" class="screen">
+        <div class="notch"></div>
+        <div id="feed" class="feed">
+          <article class="video-card" style="--scene: url('assets/anime-art.png'); --scene-tint: linear-gradient(160deg, rgba(255,219,132,.12), transparent 42%, rgba(0,0,0,.18)); --scene-position: center 42%;">
+          </article>
+          <article class="video-card" style="--scene: url('assets/kiriko%20cos.png'); --scene-tint: linear-gradient(150deg, rgba(255,126,198,.18), transparent 46%, rgba(68,219,255,.12)); --scene-position: center 38%;">
+          </article>
+          <article class="video-card" style="--scene: url('assets/makeup.png'); --scene-tint: linear-gradient(150deg, rgba(255,216,120,.18), transparent 45%, rgba(255,62,106,.1)); --scene-position: center 42%;">
+          </article>
+        </div>
+
+        <canvas id="danmakuCanvas" class="danmaku-layer"></canvas>
+        <canvas id="fxCanvas" class="fx-layer"></canvas>
+        <div id="fxOverlay" class="fx-overlay"></div>
+
+        <header class="pointer-events-none absolute inset-x-0 top-0 z-20 px-3 pt-[6px]">
+          <div class="status-bar">
+            <span>19:56</span>
+            <span></span>
+            <div class="status-right">
+              <span class="cellular" aria-hidden="true">
+                <i style="height: 4px"></i>
+                <i style="height: 7px"></i>
+                <i style="height: 10px"></i>
+                <i style="height: 13px"></i>
+              </span>
+              <svg class="wifi-icon" width="18" height="14" viewBox="0 0 22 16" aria-hidden="true">
+                <path d="M2 5.8c5.8-5 12.2-5 18 0" />
+                <path d="M5.9 9.5c3.4-2.8 6.8-2.8 10.2 0" />
+                <path d="M9.7 13c.9-.7 1.7-.7 2.6 0" />
+              </svg>
+              <span class="battery" aria-hidden="true"></span>
+            </div>
+          </div>
+          <nav class="top-tabs mt-7 flex items-center justify-center gap-7 text-[17px] font-bold text-white/62">
+            <span>关注</span>
+            <span class="active relative text-white">推荐</span>
+          </nav>
+        </header>
+
+        <div id="uiFeed" class="ui-feed">
+          <article class="ui-card">
+            <aside class="absolute bottom-[154px] right-3 z-20 flex flex-col items-center gap-3">
+              <div class="relative mb-2"><div class="avatar"></div><div class="follow-plus">+</div></div>
+              <button class="icon-btn" aria-label="心动"><svg width="38" height="38" viewBox="0 0 48 48" fill="white"><path d="M24 41S7 31.2 7 17.9C7 11 12.2 7 17.8 7c3.3 0 5.7 1.5 6.2 3.1C24.6 8.5 27 7 30.2 7 35.8 7 41 11 41 17.9 41 31.2 24 41 24 41z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">102w</span>
+              <button class="icon-btn comment-trigger" aria-label="评论"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M8 22.2C8 13.8 15.2 8 24 8s16 5.8 16 14.2S32.8 36.4 24 36.4c-1.9 0-3.7-.3-5.4-.8L10 40l2.2-7.5C9.6 29.9 8 26.4 8 22.2z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">1.1w</span>
+              <button class="icon-btn" aria-label="收藏"><svg width="37" height="37" viewBox="0 0 48 48" fill="white"><path d="M24 7l5.2 11.2 12.2 1.5-9 8.5 2.3 12-10.7-6-10.7 6 2.3-12-9-8.5 12.2-1.5L24 7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">3.6w</span>
+              <button class="icon-btn" aria-label="分享"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M36.5 29.5v8.2c0 1.8-2.1 2.8-3.4 1.6L19.8 27.2 33.1 15c1.3-1.2 3.4-.2 3.4 1.6v7.1C25.2 24 17.8 28.4 12 38.2c1.8-13.7 9.8-21.4 24.5-21.7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">47w</span>
+              <button class="record icon-btn mt-1" aria-label="音乐唱片"></button>
+            </aside>
+            <section class="desc absolute bottom-[116px] left-4 right-[78px] z-20">
+              <button class="danmaku-toggle mb-4" type="button" aria-label="弹幕开关" aria-pressed="true">弹</button>
+              <h1 class="mb-2 text-xl font-black">@吹画记</h1>
+              <p class="mb-2 text-[15px] font-semibold leading-snug">宝子们，四选一！ #同人 #守望先锋 #安燃 #画画 #板绘</p>
+              <div class="music-scroll text-xs font-semibold text-white/86"><span>原声 · 霓虹氮气和晚风正在循环播放</span></div>
+            </section>
+            <form class="danmaku-form absolute bottom-[75px] left-3 right-3 z-30 flex items-center gap-2">
+              <label class="input-shell glass flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h10M4 7h16M4 17h7" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity=".9"/></svg>
+                <input class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white placeholder:text-white/58 focus:outline-none" placeholder="发一条 vibe 弹幕..." autocomplete="off" />
+              </label>
+              <button class="glass rounded-full px-4 py-2 text-sm font-black" type="submit">发送</button>
+            </form>
+          </article>
+          <article class="ui-card">
+            <aside class="absolute bottom-[154px] right-3 z-20 flex flex-col items-center gap-3">
+              <div class="relative mb-2"><div class="avatar"></div><div class="follow-plus">+</div></div>
+              <button class="icon-btn" aria-label="心动"><svg width="38" height="38" viewBox="0 0 48 48" fill="white"><path d="M24 41S7 31.2 7 17.9C7 11 12.2 7 17.8 7c3.3 0 5.7 1.5 6.2 3.1C24.6 8.5 27 7 30.2 7 35.8 7 41 11 41 17.9 41 31.2 24 41 24 41z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">58w</span>
+              <button class="icon-btn comment-trigger" aria-label="评论"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M8 22.2C8 13.8 15.2 8 24 8s16 5.8 16 14.2S32.8 36.4 24 36.4c-1.9 0-3.7-.3-5.4-.8L10 40l2.2-7.5C9.6 29.9 8 26.4 8 22.2z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">8206</span>
+              <button class="icon-btn" aria-label="收藏"><svg width="37" height="37" viewBox="0 0 48 48" fill="white"><path d="M24 7l5.2 11.2 12.2 1.5-9 8.5 2.3 12-10.7-6-10.7 6 2.3-12-9-8.5 12.2-1.5L24 7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">2.1w</span>
+              <button class="icon-btn" aria-label="分享"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M36.5 29.5v8.2c0 1.8-2.1 2.8-3.4 1.6L19.8 27.2 33.1 15c1.3-1.2 3.4-.2 3.4 1.6v7.1C25.2 24 17.8 28.4 12 38.2c1.8-13.7 9.8-21.4 24.5-21.7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">18w</span>
+              <button class="record icon-btn mt-1" aria-label="音乐唱片"></button>
+            </aside>
+            <section class="desc absolute bottom-[116px] left-4 right-[78px] z-20">
+              <button class="danmaku-toggle mb-4" type="button" aria-label="弹幕开关" aria-pressed="true">弹</button>
+              <h1 class="mb-2 text-xl font-black">@光谱收集员</h1>
+              <p class="mb-2 text-[15px] font-semibold leading-snug">今晚的城市像被极光擦亮，路过的人都慢了半拍 #夜景 #心动</p>
+              <div class="music-scroll text-xs font-semibold text-white/86"><span>Luma Drift · soft bloom edit</span></div>
+            </section>
+            <form class="danmaku-form absolute bottom-[75px] left-3 right-3 z-30 flex items-center gap-2">
+              <label class="input-shell glass flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h10M4 7h16M4 17h7" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity=".9"/></svg>
+                <input class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white placeholder:text-white/58 focus:outline-none" placeholder="发一条 vibe 弹幕..." autocomplete="off" />
+              </label>
+              <button class="glass rounded-full px-4 py-2 text-sm font-black" type="submit">发送</button>
+            </form>
+          </article>
+          <article class="ui-card">
+            <aside class="absolute bottom-[154px] right-3 z-20 flex flex-col items-center gap-3">
+              <div class="relative mb-2"><div class="avatar"></div><div class="follow-plus">+</div></div>
+              <button class="icon-btn" aria-label="心动"><svg width="38" height="38" viewBox="0 0 48 48" fill="white"><path d="M24 41S7 31.2 7 17.9C7 11 12.2 7 17.8 7c3.3 0 5.7 1.5 6.2 3.1C24.6 8.5 27 7 30.2 7 35.8 7 41 11 41 17.9 41 31.2 24 41 24 41z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">33w</span>
+              <button class="icon-btn comment-trigger" aria-label="评论"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M8 22.2C8 13.8 15.2 8 24 8s16 5.8 16 14.2S32.8 36.4 24 36.4c-1.9 0-3.7-.3-5.4-.8L10 40l2.2-7.5C9.6 29.9 8 26.4 8 22.2z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">4632</span>
+              <button class="icon-btn" aria-label="收藏"><svg width="37" height="37" viewBox="0 0 48 48" fill="white"><path d="M24 7l5.2 11.2 12.2 1.5-9 8.5 2.3 12-10.7-6-10.7 6 2.3-12-9-8.5 12.2-1.5L24 7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">5.8w</span>
+              <button class="icon-btn" aria-label="分享"><svg width="36" height="36" viewBox="0 0 48 48" fill="white"><path d="M36.5 29.5v8.2c0 1.8-2.1 2.8-3.4 1.6L19.8 27.2 33.1 15c1.3-1.2 3.4-.2 3.4 1.6v7.1C25.2 24 17.8 28.4 12 38.2c1.8-13.7 9.8-21.4 24.5-21.7z"/></svg></button>
+              <span class="-mt-3 text-xs font-bold">9.4w</span>
+              <button class="record icon-btn mt-1" aria-label="音乐唱片"></button>
+            </aside>
+            <section class="desc absolute bottom-[116px] left-4 right-[78px] z-20">
+              <button class="danmaku-toggle mb-4" type="button" aria-label="弹幕开关" aria-pressed="true">弹</button>
+              <h1 class="mb-2 text-xl font-black">@金色开箱</h1>
+              <p class="mb-2 text-[15px] font-semibold leading-snug">这支液态高光真的真香，抬手就是细碎星河 #种草 #买买买</p>
+              <div class="music-scroll text-xs font-semibold text-white/86"><span>Golden Cart · coin shower remix</span></div>
+            </section>
+            <form class="danmaku-form absolute bottom-[75px] left-3 right-3 z-30 flex items-center gap-2">
+              <label class="input-shell glass flex min-w-0 flex-1 items-center gap-2 rounded-full px-3 py-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h10M4 7h16M4 17h7" stroke="white" stroke-width="2.2" stroke-linecap="round" opacity=".9"/></svg>
+                <input class="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white placeholder:text-white/58 focus:outline-none" placeholder="发一条 vibe 弹幕..." autocomplete="off" />
+              </label>
+              <button class="glass rounded-full px-4 py-2 text-sm font-black" type="submit">发送</button>
+            </form>
+          </article>
+        </div>
+
+        <footer class="bottom-nav glass absolute inset-x-0 bottom-0 z-20 flex h-[68px] items-center justify-around rounded-t-[22px] border-x-0 border-b-0 px-3 text-[13px] font-bold text-white/58">
+          <button class="flex flex-col items-center gap-1 text-white">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M4 11.2 12 4l8 7.2V20h-5v-5H9v5H4v-8.8z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
+            首页
+          </button>
+          <button class="flex flex-col items-center gap-1">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M8 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8.5 1.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6ZM2.5 21c.8-4 3.2-6.1 7-6.1s6.2 2.1 7 6.1M14.5 15.1c3.4.2 5.5 2.2 6.2 5.9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            朋友
+          </button>
+          <button class="plus-box grid place-items-center text-3xl font-black leading-none text-white">+</button>
+          <button class="relative flex flex-col items-center gap-1">
+            <span class="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#ff2d62] px-1 text-xs text-white">1</span>
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M5 5h14v10H8l-3 3V5z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>
+            消息
+          </button>
+          <button class="flex flex-col items-center gap-1">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M12 12a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4ZM4.5 21c1-4.3 3.5-6.5 7.5-6.5s6.5 2.2 7.5 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+            我
+          </button>
+        </footer>
+        <div id="commentBackdrop" class="comment-backdrop"></div>
+        <section id="commentSheet" class="comment-sheet" aria-hidden="true">
+          <header class="flex items-center justify-between px-5 py-4">
+            <span class="text-sm text-black/55">大家都在聊：弹幕氛围感</span>
+            <button id="closeComments" class="grid h-9 w-9 place-items-center rounded-full bg-black/5 text-2xl leading-none text-black/65" type="button" aria-label="关闭评论">×</button>
+          </header>
+          <h2 class="text-center text-base font-black">1.1w 条评论</h2>
+          <div id="commentList" class="comment-list"></div>
+          <form id="commentForm" class="comment-form">
+            <input id="commentInput" class="min-w-0 flex-1 bg-transparent px-2 text-sm text-black placeholder:text-black/42 focus:outline-none" placeholder="善语结善缘，恶言伤人心" autocomplete="off" />
+            <button class="rounded-full bg-black px-4 py-2 text-sm font-bold text-white" type="submit">发送</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      const screen = document.getElementById("screen");
+      const feed = document.getElementById("feed");
+      const uiFeed = document.getElementById("uiFeed");
+      const dCanvas = document.getElementById("danmakuCanvas");
+      const fCanvas = document.getElementById("fxCanvas");
+      const dCtx = dCanvas.getContext("2d");
+      const fCtx = fCanvas.getContext("2d");
+      const forms = [...document.querySelectorAll(".danmaku-form")];
+      const danmakuToggles = [...document.querySelectorAll(".danmaku-toggle")];
+      const commentTriggers = [...document.querySelectorAll(".comment-trigger")];
+      const commentBackdrop = document.getElementById("commentBackdrop");
+      const commentSheet = document.getElementById("commentSheet");
+      const closeComments = document.getElementById("closeComments");
+      const commentForm = document.getElementById("commentForm");
+      const commentInput = document.getElementById("commentInput");
+      const commentList = document.getElementById("commentList");
+      const fxOverlay = document.getElementById("fxOverlay");
+
+      const videos = [
+        ["@吹画记", "宝子们，四选一！ #同人 #守望先锋 #安燃 #画画 #板绘", "原声 · 霓虹氮气和晚风正在循环播放"],
+        ["@光谱收集员", "今晚的城市像被极光擦亮，路过的人都慢了半拍 #夜景 #心动", "Luma Drift · soft bloom edit"],
+        ["@金色开箱", "这支液态高光真的真香，抬手就是细碎星河 #种草 #买买买", "Golden Cart · coin shower remix"]
+      ];
+
+      const state = {
+        index: 0,
+        startY: 0,
+        currentY: 0,
+        dragging: false,
+        danmakuPools: [[], [], []],
+        particles: [],
+        bubbles: [],
+        coins: [],
+        flames: [],
+        flameUntil: 0,
+        flameCarry: 0,
+        beautyFountainUntil: 0,
+        beautyFountainCarry: 0,
+        danmakuVisible: true,
+        userBadge: null,
+        last: performance.now(),
+        dpr: Math.min(window.devicePixelRatio || 1, 2)
+      };
+
+      const vibeMap = [
+        { type: "hot", keys: ["666", "nb", "牛逼", "帅"] },
+        { type: "beauty", keys: ["太美了", "好看", "心动"] },
+        { type: "shop", keys: ["买买买", "剁手", "真香"] }
+      ];
+
+      const demoPools = [
+        ["666 这张构图太帅", "线稿好稳", "nb 这个姿势", "画师老师nb", "小安燃燃的 好看捏", "想看成稿", "帅到我了", "笔触好利落", "这个光影绝"],
+        ["太美了 像极光", "好看 好温柔", "心动了", "雾子宝宝好美", "cos得好好，美鼠了", "这层光绝了", "氛围感拉满", "发丝好漂亮", "眼神好会"],
+        ["真香 这支高光", "买买买", "剁手预警", "质感好贵", "求链接", "这套好显气质", "颜色太会搭"]
+      ];
+
+      const commentPools = [
+        [
+          { name: "笔刷收藏夹", text: "第一张这个线稿太有力了，刚发了 666，火苗身份很合适。", time: "刚刚", badge: "hot" },
+          { name: "燃点收割机", text: "红色弹幕逐字跳起来像小火在烧，画稿区很搭。", time: "3 分钟前", badge: "hot" },
+          { name: "路过的剪辑师", text: "评论区也带身份徽章，这个互动闭环就很完整。", time: "5 分钟前", badge: null }
+        ],
+        [
+          { name: "心动滤镜", text: "我发“太美了”之后底部飘心心，评论区也有粉色身份，挺有仪式感。", time: "刚刚", badge: "beauty" },
+          { name: "光谱采样员", text: "这张 cos 图配粉色爱心徽章很自然，一看就是被美到了。", time: "2 分钟前", badge: "beauty" },
+          { name: "热评观察员", text: "这个弹幕特效好像真的能带情绪，尤其是心动那条。", time: "4 分钟前", badge: null }
+        ],
+        [
+          { name: "种草小票", text: "买买买那个金币徽章好懂，一看就是刚被种草的人。", time: "刚刚", badge: "shop" },
+          { name: "衣柜补货中", text: "妆容和穿搭都很真香，金币身份一出来就有下单氛围。", time: "6 分钟前", badge: "shop" },
+          { name: "理性但心动", text: "第三刷评论区应该多点种草味，这样就对了。", time: "9 分钟前", badge: null }
+        ]
+      ];
+
+      function currentDanmakus() {
+        if (!state.danmakuPools[state.index]) state.danmakuPools[state.index] = [];
+        return state.danmakuPools[state.index];
+      }
+
+      function clearTransientEffects() {
+        state.particles = [];
+        state.bubbles = [];
+        state.coins = [];
+        state.flames = [];
+        state.flameUntil = 0;
+        state.flameCarry = 0;
+        state.beautyFountainUntil = 0;
+        state.beautyFountainCarry = 0;
+        fxOverlay.className = "fx-overlay";
+      }
+
+      function syncDanmakuToggle() {
+        danmakuToggles.forEach((button) => {
+          button.classList.toggle("is-off", !state.danmakuVisible);
+          button.setAttribute("aria-pressed", String(state.danmakuVisible));
+        });
+      }
+
+      function badgeSvg(type) {
+        if (type === "hot") return `<span class="badge-icon" title="高燃徽章"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12.8 2.8c1.3 3.3-.6 4.7 1.4 7.1.8-1 1.2-2.2 1.2-3.5 3 2.3 4.5 5.3 4.2 8.4-.4 4-3.5 6.7-7.6 6.7-4.4 0-7.7-2.9-7.7-7.2 0-3.4 2.4-5.7 5-8.2.9-.9 1.9-1.9 3.5-3.3Z" fill="url(#fireBadge)"/><path d="M12.1 11.2c1.6 2-.2 2.9 1.1 4.5.5-.5.8-1.1 1-1.8 1.4 1.2 2 2.5 1.9 3.8-.2 2-1.8 3.3-4 3.3-2.1 0-3.8-1.4-3.8-3.5 0-1.8 1.4-3.2 3.8-6.3Z" fill="#fff2d9" opacity=".78"/><defs><linearGradient id="fireBadge" x1="6" y1="2" x2="18" y2="22"><stop stop-color="#ffd1bf"/><stop offset=".45" stop-color="#ff4939"/><stop offset="1" stop-color="#b91532"/></linearGradient></defs></svg></span>`;
+        if (type === "beauty") return `<span class="badge-icon" title="心动徽章"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 20.6S4.2 16.1 4.2 9.9c0-3.2 2.4-5.1 5-5.1 1.6 0 2.7.7 2.8 1.6.3-.9 1.4-1.6 2.8-1.6 2.6 0 5 1.9 5 5.1 0 6.2-7.8 10.7-7.8 10.7Z" fill="url(#heartBadge)"/><defs><linearGradient id="heartBadge" x1="5" y1="5" x2="19" y2="20"><stop stop-color="#ff9dde"/><stop offset=".5" stop-color="#ff5dbb"/><stop offset="1" stop-color="#b689ff"/></linearGradient></defs></svg></span>`;
+        if (type === "shop") return `<span class="badge-icon" title="种草徽章"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="8.5" fill="url(#coinBadge)"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="rgba(109,70,8,.35)" stroke-width="1.5"/><path d="M12 7.8v8.4M9.2 10.2c.5-1 1.4-1.5 2.8-1.5 1.6 0 2.6.7 2.6 1.8 0 2.8-5.4 1.4-5.4 4 0 1.2 1.1 1.9 2.8 1.9 1.5 0 2.5-.5 3.1-1.6" stroke="#7a4c05" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="coinBadge" x1="5" y1="4" x2="19" y2="20"><stop stop-color="#fff0a8"/><stop offset=".48" stop-color="#f6bd35"/><stop offset="1" stop-color="#a7670b"/></linearGradient></defs></svg></span>`;
+        return "";
+      }
+
+      function openComments() {
+        renderComments();
+        commentSheet.classList.add("open");
+        commentBackdrop.classList.add("open");
+        commentSheet.setAttribute("aria-hidden", "false");
+      }
+
+      function closeCommentSheet() {
+        commentSheet.classList.remove("open");
+        commentBackdrop.classList.remove("open");
+        commentSheet.setAttribute("aria-hidden", "true");
+      }
+
+      function renderComment(comment) {
+        const article = document.createElement("article");
+        article.className = "mb-5 flex gap-3";
+        const badgeClass = comment.badge || "";
+        article.innerHTML = `<div class="comment-avatar"></div><div class="min-w-0 flex-1"><div class="text-sm text-black/42"><span class="comment-name ${badgeClass}"></span></div><p class="mt-1 text-[15px] leading-snug text-black/88"></p><div class="mt-2 text-xs text-black/38">${comment.time} · 回复</div></div><span class="text-xl text-black/36">♡</span>`;
+        const name = article.querySelector(".comment-name");
+        name.textContent = comment.name;
+        name.insertAdjacentHTML("beforeend", badgeSvg(comment.badge));
+        article.querySelector("p").textContent = comment.text;
+        return article;
+      }
+
+      function renderComments() {
+        commentList.replaceChildren(...commentPools[state.index].map(renderComment));
+      }
+
+      function addUserComment(text) {
+        commentPools[state.index].unshift({ name: "我", text, time: "刚刚", badge: state.userBadge });
+        renderComments();
+      }
+
+      function sendViewerDanmaku(videoIndex = state.index) {
+        const pool = demoPools[videoIndex];
+        const next = demoIndexByVideo[videoIndex] % pool.length;
+        sendDanmaku(pool[next], { source: "viewer", videoIndex });
+        demoIndexByVideo[videoIndex]++;
+      }
+
+      function resizeCanvas() {
+        const rect = screen.getBoundingClientRect();
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        for (const canvas of [dCanvas, fCanvas]) {
+          canvas.width = Math.floor(rect.width * state.dpr);
+          canvas.height = Math.floor(rect.height * state.dpr);
+          canvas.style.width = rect.width + "px";
+          canvas.style.height = rect.height + "px";
+        }
+        dCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        fCtx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      }
+
+      function detectVibe(text) {
+        const normalized = text.toLowerCase();
+        return vibeMap.find((vibe) => vibe.keys.some((key) => normalized.includes(key.toLowerCase())))?.type || "normal";
+      }
+
+      function sendDanmaku(text, options = {}) {
+        const value = String(text || "").trim();
+        if (!value) return;
+        const source = options.source || "self";
+        const isSelf = source === "self";
+        const videoIndex = Number.isInteger(options.videoIndex) ? options.videoIndex : state.index;
+        if (!state.danmakuPools[videoIndex]) state.danmakuPools[videoIndex] = [];
+        const rect = screen.getBoundingClientRect();
+        const vibe = detectVibe(value);
+        const laneHeight = 34;
+        const top = 112;
+        const bottom = Math.max(top + laneHeight, rect.height - 214);
+        const lanes = Math.max(3, Math.floor((bottom - top) / laneHeight));
+        const lane = Math.floor(Math.random() * lanes);
+        const y = top + lane * laneHeight + Math.random() * 11;
+
+        state.danmakuPools[videoIndex].push({
+          text: value,
+          vibe,
+          x: rect.width + 28,
+          y,
+          speed: 90 + Math.random() * 42 + value.length * 2,
+          life: 0,
+          wobble: Math.random() * Math.PI * 2,
+          floatAmp: 1.8 + Math.random() * 2.8,
+          floatSpeed: 2.4 + Math.random() * 1.8,
+          self: isSelf
+        });
+
+        if (isSelf && vibe !== "normal") {
+          state.userBadge = vibe;
+          triggerFullScreen(vibe);
+        }
+      }
+
+      window.sendDanmaku = sendDanmaku;
+
+      function triggerFullScreen(vibe) {
+        fxOverlay.className = "fx-overlay";
+        void fxOverlay.offsetWidth;
+        if (vibe === "hot") {
+          fxOverlay.className = "fx-overlay hot";
+          state.flameUntil = performance.now() + 1800;
+          state.flameCarry = 0;
+          for (let i = 0; i < 30; i++) spawnFlame();
+          for (let i = 0; i < 22; i++) spawnParticle("ember", Math.random() * screen.clientWidth, screen.clientHeight * 0.93 + Math.random() * 38, -Math.PI / 2 + (Math.random() - 0.5) * 0.9, 42 + Math.random() * 96);
+        }
+        if (vibe === "beauty") {
+          fxOverlay.className = "fx-overlay beauty";
+          state.beautyFountainUntil = performance.now() + 1800;
+          state.beautyFountainCarry = 0;
+          for (let i = 0; i < 14; i++) spawnBubble(true);
+        }
+        if (vibe === "shop") {
+          fxOverlay.className = "fx-overlay";
+          for (let i = 0; i < 28; i++) spawnCoin(Math.random() * screen.clientWidth, -Math.random() * 220, true);
+        }
+      }
+
+      function spawnParticle(kind, x, y, angle, speed) {
+        state.particles.push({
+          kind,
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: kind === "nitro" ? 1.6 + Math.random() * 2.8 : 1.2 + Math.random() * 3.8,
+          life: kind === "spark" ? 0.55 : 0.38,
+          age: 0,
+          hue: Math.random()
+        });
+      }
+
+      function spawnFlame() {
+        const w = screen.clientWidth;
+        const h = screen.clientHeight;
+        const depth = Math.random();
+        const baseX = Math.random() * w;
+        state.flames.push({
+          x: baseX,
+          y: h - 92 + Math.random() * 52,
+          vx: (Math.random() - 0.5) * (18 + depth * 18),
+          vy: -84 - Math.random() * 112 - depth * 52,
+          w: 18 + Math.random() * 34 + depth * 20,
+          h: 54 + Math.random() * 86 + depth * 46,
+          age: 0,
+          life: 0.72 + Math.random() * 0.54,
+          sway: 2 + Math.random() * 4,
+          phase: Math.random() * Math.PI * 2,
+          hue: Math.random()
+        });
+      }
+
+      function spawnBubble(full = false) {
+        const w = screen.clientWidth;
+        const h = screen.clientHeight;
+        const depth = Math.random();
+        state.bubbles.push({
+          x: Math.random() * w,
+          y: full ? h - 36 + Math.random() * 88 : h - 82 + Math.random() * 34,
+          vx: -14 + Math.random() * 28,
+          vy: -58 - Math.random() * 104 - depth * 42,
+          r: 6 + Math.random() * 26 + depth * 10,
+          age: 0,
+          life: 2.4 + Math.random() * 1.8,
+          blur: 0.5 + Math.random() * 8 + depth * 5,
+          sway: 1.2 + Math.random() * 2.7,
+          phase: Math.random() * Math.PI * 2,
+          depth,
+          full
+        });
+      }
+
+      function spawnCoin(x, y, shower = false) {
+        state.coins.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * (shower ? 78 : 36),
+          vy: shower ? 90 + Math.random() * 170 : 58 + Math.random() * 70,
+          r: shower ? 7 + Math.random() * 8 : 5 + Math.random() * 5,
+          rot: Math.random() * Math.PI,
+          spin: -6 + Math.random() * 12,
+          age: 0,
+          life: shower ? 2.2 : 0.62,
+          bounce: 0
+        });
+      }
+
+      function drawHeart(ctx, x, y, size, alpha, blur) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(size / 18, size / 18);
+        ctx.shadowColor = `rgba(255, 94, 214, ${alpha})`;
+        ctx.shadowBlur = 12 + blur;
+        ctx.globalAlpha = alpha;
+        const gradient = ctx.createLinearGradient(-10, -10, 10, 12);
+        gradient.addColorStop(0, "rgba(255, 166, 231, 0.82)");
+        gradient.addColorStop(0.55, "rgba(135, 214, 255, 0.56)");
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0.42)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.bezierCurveTo(-13, 0, -10, -10, -3, -7);
+        ctx.bezierCurveTo(0, -12, 10, -10, 10, -2);
+        ctx.bezierCurveTo(10, 4, 3, 7, 0, 8);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawCoin(ctx, coin) {
+        ctx.save();
+        ctx.translate(coin.x, coin.y);
+        ctx.rotate(coin.rot);
+        const sx = 0.42 + Math.abs(Math.cos(coin.rot)) * 0.58;
+        ctx.scale(sx, 1);
+        const g = ctx.createRadialGradient(-coin.r * 0.3, -coin.r * 0.35, 1, 0, 0, coin.r);
+        g.addColorStop(0, "#fff5b8");
+        g.addColorStop(0.42, "#ffd55a");
+        g.addColorStop(1, "#a86a06");
+        ctx.fillStyle = g;
+        ctx.shadowColor = "rgba(255, 205, 52, 0.8)";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, coin.r, coin.r * 0.9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "rgba(255,255,255,.45)";
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, coin.r * 0.48, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(128,74,0,.34)";
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawWavyText(ctx, text, x, y, fillStyle, options = {}) {
+        const chars = Array.from(text);
+        let cursor = x;
+        const amp = options.amp || 4;
+        const stagger = options.stagger || 0.72;
+        const phase = options.phase || 0;
+        for (let i = 0; i < chars.length; i++) {
+          const char = chars[i];
+          const charY = y + Math.sin(phase + i * stagger) * amp + Math.sin(phase * 0.55 + i * 1.23) * (amp * 0.28);
+          ctx.fillStyle = typeof fillStyle === "function" ? fillStyle(cursor, charY, char, i) : fillStyle;
+          ctx.fillText(char, cursor, charY);
+          cursor += ctx.measureText(char).width;
+        }
+      }
+
+      function drawFlameBed(ctx, text, x, y, width, phase, amp) {
+        const chars = Array.from(text);
+        let cursor = x;
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.filter = "blur(0.35px)";
+        for (let i = 0; i < chars.length; i++) {
+          const char = chars[i];
+          const charWidth = ctx.measureText(char).width;
+          const center = cursor + charWidth * 0.5;
+          const lift = Math.sin(phase * 0.95 + i * 1.18) * amp;
+          const flameH = 8 + Math.sin(phase + i * 0.72) * 2.5;
+          const flameW = Math.max(8, charWidth * 0.86);
+          const g = ctx.createLinearGradient(center, y + 9, center, y - flameH);
+          g.addColorStop(0, "rgba(255, 36, 42, 0)");
+          g.addColorStop(0.34, "rgba(255, 53, 48, 0.18)");
+          g.addColorStop(0.72, "rgba(255, 118, 83, 0.28)");
+          g.addColorStop(1, "rgba(255, 214, 188, 0.06)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.moveTo(center - flameW * 0.52, y + 9);
+          ctx.bezierCurveTo(center - flameW * 0.38, y + 2, center - flameW * 0.18, y - flameH * 0.32 + lift, center - flameW * 0.05, y - flameH);
+          ctx.bezierCurveTo(center + flameW * 0.08, y - flameH * 0.35, center + flameW * 0.38, y + 1, center + flameW * 0.52, y + 9);
+          ctx.closePath();
+          ctx.fill();
+          cursor += charWidth;
+        }
+        const glow = ctx.createRadialGradient(x + width * 0.5, y + 5, 0, x + width * 0.5, y + 5, Math.max(48, width * 0.62));
+        glow.addColorStop(0, "rgba(255, 58, 50, .14)");
+        glow.addColorStop(1, "rgba(255, 58, 50, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(x - 20, y - 18, width + 40, 36);
+        ctx.restore();
+      }
+
+      function drawSelfFrame(ctx, x, y, width, height, intensity = 1) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.5 * intensity;
+        ctx.lineWidth = 1.7;
+        ctx.shadowColor = "rgba(255, 255, 255, .48)";
+        ctx.shadowBlur = 6;
+        ctx.strokeStyle = "rgba(255, 255, 255, .72)";
+        ctx.fillStyle = "rgba(255, 255, 255, .045)";
+        const padX = 8;
+        const padY = 5;
+        const radius = 9;
+        ctx.beginPath();
+        ctx.roundRect(x - padX, y - height / 2 - padY, width + padX * 2, height + padY * 2, radius);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawDanmaku(item, dt) {
+        item.life += dt;
+        item.x -= item.speed * dt;
+        const pulse = Math.sin(item.life * 7 + item.wobble);
+        const floatY = Math.sin(item.life * item.floatSpeed + item.wobble) * item.floatAmp;
+        const fontSize = item.vibe === "normal" ? 17 : 20;
+
+        dCtx.save();
+        dCtx.font = `900 ${fontSize}px ui-sans-serif, system-ui`;
+        dCtx.textBaseline = "middle";
+        dCtx.lineJoin = "round";
+
+        if (item.vibe === "hot") {
+          const width = dCtx.measureText(item.text).width;
+          const y = item.y;
+          const lengthEase = Math.max(0, Math.min(1, (Array.from(item.text).length - 3) / 9));
+          const phase = item.life * item.floatSpeed * (1.8 - lengthEase * 0.85) + item.wobble;
+          const waveAmp = (item.self ? item.floatAmp + 1 : item.floatAmp) * (1 - lengthEase * 0.48);
+          const waveStagger = 0.78 - lengthEase * 0.22;
+          const g = dCtx.createLinearGradient(item.x, y - 16, item.x + width, y + 16);
+          g.addColorStop(0, "#ffd0c6");
+          g.addColorStop(0.32, "#ff3b35");
+          g.addColorStop(0.62, "#ff7a45");
+          g.addColorStop(0.82, "#ffe2d8");
+          g.addColorStop(1, "#c1122f");
+          dCtx.shadowColor = "rgba(255, 55, 48, 0.72)";
+          drawFlameBed(dCtx, item.text, item.x, y + 9, width, phase, waveAmp);
+          dCtx.shadowBlur = item.self ? 20 : 13;
+          drawWavyText(dCtx, item.text, item.x, y, "rgba(255, 65, 55, .22)", { amp: waveAmp + 0.7, phase, stagger: waveStagger });
+          dCtx.shadowBlur = item.self ? 11 : 7;
+          drawWavyText(dCtx, item.text, item.x, y, g, { amp: waveAmp, phase, stagger: waveStagger });
+          dCtx.globalCompositeOperation = "screen";
+          drawWavyText(dCtx, item.text, item.x - 1, y - 1, "rgba(255, 224, 218, .32)", { amp: waveAmp * 0.72, phase: phase + 0.18, stagger: waveStagger });
+          if (item.self) drawSelfFrame(dCtx, item.x, y, width, fontSize + waveAmp * 2, 0.92);
+        } else if (item.vibe === "beauty") {
+          const width = dCtx.measureText(item.text).width;
+          const y = item.y + floatY * 0.55;
+          const g = dCtx.createLinearGradient(item.x, y - 12, item.x + width, y + 12);
+          g.addColorStop(0, "#ff82da");
+          g.addColorStop(0.48, "#b999ff");
+          g.addColorStop(1, "#65e8ff");
+          dCtx.shadowColor = "rgba(174, 107, 255, .9)";
+          dCtx.shadowBlur = 20;
+          dCtx.filter = "blur(.25px)";
+          dCtx.fillStyle = g;
+          dCtx.fillText(item.text, item.x, y);
+          if (item.self) drawSelfFrame(dCtx, item.x, y, width, fontSize, 0.78);
+          const beautyTrailChance = item.self ? 0.09 : 0.045;
+          if (Math.random() < beautyTrailChance) {
+            state.bubbles.push({
+              x: item.x + width + 8,
+              y: y + (Math.random() - 0.5) * 10,
+              vx: -10 + Math.random() * 14,
+              vy: -34 - Math.random() * 34,
+              r: 7 + Math.random() * 8,
+              age: 0,
+              life: 1.2 + Math.random() * 0.8,
+              blur: 0.5 + Math.random() * 2.5,
+              sway: 1.8 + Math.random() * 2.4,
+              phase: Math.random() * Math.PI * 2,
+              depth: 0.72 + Math.random() * 0.28
+            });
+          }
+        } else if (item.vibe === "shop") {
+          const width = dCtx.measureText(item.text).width;
+          const y = item.y + floatY * 0.35;
+          const g = dCtx.createLinearGradient(item.x, y - 12, item.x + width, y + 12);
+          g.addColorStop(0, "#8f5d22");
+          g.addColorStop(0.2, "#f5d88f");
+          g.addColorStop(0.48, "#d99a35");
+          g.addColorStop(0.76, "#fff1c6");
+          g.addColorStop(1, "#ad6f2b");
+          dCtx.shadowColor = "rgba(224, 154, 55, .68)";
+          dCtx.shadowBlur = item.self ? 18 : 11;
+          dCtx.fillStyle = "rgba(218, 148, 55, .22)";
+          dCtx.fillText(item.text, item.x, y);
+          dCtx.shadowBlur = item.self ? 10 : 6;
+          dCtx.fillStyle = g;
+          dCtx.fillText(item.text, item.x, y);
+          const shineX = item.x + ((item.life * 145) % (width + 90)) - 45;
+          dCtx.save();
+          dCtx.globalAlpha = item.self ? 0.58 : 0.36;
+          dCtx.globalCompositeOperation = "screen";
+          const shine = dCtx.createLinearGradient(shineX - 18, y + 18, shineX + 20, y - 18);
+          shine.addColorStop(0, "rgba(255,255,255,0)");
+          shine.addColorStop(0.5, "rgba(255,255,255,.55)");
+          shine.addColorStop(1, "rgba(255,255,255,0)");
+          dCtx.fillStyle = shine;
+          dCtx.font = `900 ${fontSize}px ui-sans-serif, system-ui`;
+          dCtx.fillText(item.text, item.x, y);
+          dCtx.restore();
+          if (item.self) drawSelfFrame(dCtx, item.x, y, width, fontSize, 0.8);
+          const shopTrailChance = item.self ? 0.07 : 0.018;
+          if (Math.random() < shopTrailChance) spawnCoin(item.x + width + 8, y - 4, false);
+          if (Math.random() < shopTrailChance * 0.9) spawnParticle("star", item.x + width, y, Math.PI * 0.5 + Math.random() * 0.4, 18 + Math.random() * 26);
+        } else {
+          dCtx.shadowColor = "rgba(0,0,0,.55)";
+          dCtx.shadowBlur = 8;
+          dCtx.fillStyle = "rgba(255,255,255,.94)";
+          dCtx.fillText(item.text, item.x, item.y);
+          if (item.self) drawSelfFrame(dCtx, item.x, item.y, dCtx.measureText(item.text).width, fontSize, 0.72);
+        }
+        dCtx.restore();
+
+        return item.x + dCtx.measureText(item.text).width > -40;
+      }
+
+      function drawParticles(dt) {
+        state.particles = state.particles.filter((p) => {
+          p.age += dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vx *= 0.985;
+          p.vy *= 0.985;
+          const alpha = Math.max(0, 1 - p.age / p.life);
+          fCtx.save();
+          fCtx.globalAlpha = alpha;
+          if (p.kind === "star") {
+            fCtx.translate(p.x, p.y);
+            fCtx.rotate(p.age * 8);
+            fCtx.fillStyle = "#ffd84d";
+            fCtx.shadowColor = "#ffd84d";
+            fCtx.shadowBlur = 10;
+            fCtx.beginPath();
+            for (let i = 0; i < 10; i++) {
+              const r = i % 2 ? p.r * 0.45 : p.r;
+              const a = (i / 10) * Math.PI * 2;
+              fCtx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+            }
+            fCtx.closePath();
+            fCtx.fill();
+          } else {
+            const g = fCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3);
+            if (p.kind === "nitro" || p.kind === "flare" || p.kind === "ember") {
+              g.addColorStop(0, "#fff1ea");
+              g.addColorStop(0.42, p.kind === "ember" ? "rgba(255, 125, 62, .72)" : "#ff4b38");
+              g.addColorStop(1, "rgba(255, 35, 28, 0)");
+            } else {
+              g.addColorStop(0, "#fff6a8");
+              g.addColorStop(0.5, "#ffd64a");
+              g.addColorStop(1, "rgba(255, 196, 0, 0)");
+            }
+            fCtx.fillStyle = g;
+            fCtx.beginPath();
+            fCtx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+            fCtx.fill();
+          }
+          fCtx.restore();
+          return p.age < p.life;
+        });
+      }
+
+      function drawFlames(dt) {
+        if (performance.now() < state.flameUntil) {
+          state.flameCarry += dt * 36;
+          while (state.flameCarry >= 1) {
+            spawnFlame();
+            state.flameCarry--;
+          }
+        }
+        state.flames = state.flames.filter((flame) => {
+          flame.age += dt;
+          flame.x += flame.vx * dt + Math.sin(flame.age * flame.sway + flame.phase) * 0.9;
+          flame.y += flame.vy * dt;
+          flame.vy *= 0.985;
+          const t = flame.age / flame.life;
+          const alpha = Math.max(0, 1 - t);
+          const stretch = 1 + t * 0.34;
+          const shrink = 1 - t * 0.38;
+          fCtx.save();
+          fCtx.globalCompositeOperation = "screen";
+          fCtx.globalAlpha = alpha * 0.88;
+          fCtx.translate(flame.x, flame.y);
+          fCtx.rotate(Math.sin(flame.age * 5 + flame.phase) * 0.16);
+          fCtx.scale(shrink, stretch);
+          const outer = fCtx.createRadialGradient(0, flame.h * 0.32, 0, 0, 0, flame.h * 0.82);
+          outer.addColorStop(0, "rgba(255, 236, 185, .92)");
+          outer.addColorStop(0.24, "rgba(255, 160, 63, .78)");
+          outer.addColorStop(0.58, "rgba(255, 56, 42, .48)");
+          outer.addColorStop(1, "rgba(151, 18, 30, 0)");
+          fCtx.fillStyle = outer;
+          fCtx.shadowColor = "rgba(255, 88, 42, .42)";
+          fCtx.shadowBlur = 14;
+          fCtx.beginPath();
+          fCtx.moveTo(0, -flame.h * 0.72);
+          fCtx.bezierCurveTo(-flame.w * 0.55, -flame.h * 0.22, -flame.w * 0.46, flame.h * 0.34, 0, flame.h * 0.5);
+          fCtx.bezierCurveTo(flame.w * 0.52, flame.h * 0.22, flame.w * 0.42, -flame.h * 0.28, 0, -flame.h * 0.72);
+          fCtx.fill();
+          fCtx.globalAlpha = alpha * 0.55;
+          fCtx.scale(0.48, 0.68);
+          const inner = fCtx.createRadialGradient(0, flame.h * 0.1, 0, 0, 0, flame.h * 0.5);
+          inner.addColorStop(0, "rgba(255, 255, 226, .95)");
+          inner.addColorStop(0.38, "rgba(255, 205, 91, .72)");
+          inner.addColorStop(1, "rgba(255, 128, 45, 0)");
+          fCtx.fillStyle = inner;
+          fCtx.beginPath();
+          fCtx.moveTo(0, -flame.h * 0.52);
+          fCtx.bezierCurveTo(-flame.w * 0.34, -flame.h * 0.1, -flame.w * 0.18, flame.h * 0.28, 0, flame.h * 0.42);
+          fCtx.bezierCurveTo(flame.w * 0.28, flame.h * 0.14, flame.w * 0.22, -flame.h * 0.16, 0, -flame.h * 0.52);
+          fCtx.fill();
+          fCtx.restore();
+          return flame.age < flame.life && flame.y > screen.clientHeight * 0.38;
+        });
+      }
+
+      function drawBubbles(dt) {
+        if (performance.now() < state.beautyFountainUntil) {
+          state.beautyFountainCarry += dt * 22;
+          while (state.beautyFountainCarry >= 1) {
+            spawnBubble(true);
+            state.beautyFountainCarry--;
+          }
+        }
+        state.bubbles = state.bubbles.filter((b) => {
+          b.age += dt;
+          b.x += b.vx * dt + Math.sin(b.age * b.sway + b.phase) * (0.35 + b.depth * 0.42);
+          b.y += b.vy * dt;
+          const alpha = Math.max(0, 1 - b.age / b.life);
+          const bubbleAlpha = b.full ? alpha * (0.64 + b.depth * 0.42) : alpha * (0.42 + b.depth * 0.36);
+          drawHeart(fCtx, b.x, b.y, b.r, Math.min(0.96, bubbleAlpha), b.full ? b.blur * 0.72 : b.blur);
+          return b.age < b.life && b.y > -90;
+        });
+      }
+
+      function drawCoins(dt) {
+        const floor = screen.clientHeight - 70;
+        state.coins = state.coins.filter((coin) => {
+          coin.age += dt;
+          coin.x += coin.vx * dt;
+          coin.y += coin.vy * dt;
+          coin.vy += 260 * dt;
+          coin.rot += coin.spin * dt;
+          if (coin.y + coin.r > floor && coin.bounce < 1) {
+            coin.y = floor - coin.r;
+            coin.vy *= -0.34;
+            coin.vx *= 0.72;
+            coin.bounce++;
+          }
+          fCtx.globalAlpha = Math.max(0, 1 - coin.age / coin.life);
+          drawCoin(fCtx, coin);
+          fCtx.globalAlpha = 1;
+          return coin.age < coin.life;
+        });
+      }
+
+      function animate(now) {
+        const dt = Math.min(0.033, (now - state.last) / 1000);
+        state.last = now;
+        dCtx.clearRect(0, 0, dCanvas.width, dCanvas.height);
+        fCtx.clearRect(0, 0, fCanvas.width, fCanvas.height);
+        if (state.danmakuVisible) {
+          state.danmakuPools[state.index] = currentDanmakus().filter((item) => drawDanmaku(item, dt));
+        }
+        drawFlames(dt);
+        drawParticles(dt);
+        drawBubbles(dt);
+        drawCoins(dt);
+        requestAnimationFrame(animate);
+      }
+
+      function updateSlide(animate = true) {
+        const transition = animate ? "transform 560ms cubic-bezier(0.2, 0.92, 0.1, 1)" : "none";
+        const transform = `translate3d(0, ${-state.index * screen.clientHeight}px, 0)`;
+        feed.style.transition = transition;
+        uiFeed.style.transition = transition;
+        feed.style.transform = transform;
+        uiFeed.style.transform = transform;
+        clearTransientEffects();
+        if (commentSheet.classList.contains("open")) renderComments();
+        if (animate && currentDanmakus().length < 3) {
+          setTimeout(() => sendViewerDanmaku(state.index), 180);
+          setTimeout(() => sendViewerDanmaku(state.index), 520);
+        }
+      }
+
+      function startDrag(y) {
+        state.dragging = true;
+        state.startY = y;
+        state.currentY = y;
+        feed.style.transition = "none";
+        uiFeed.style.transition = "none";
+      }
+
+      function moveDrag(y) {
+        if (!state.dragging) return;
+        state.currentY = y;
+        const delta = y - state.startY;
+        const transform = `translate3d(0, ${-state.index * screen.clientHeight + delta}px, 0)`;
+        feed.style.transform = transform;
+        uiFeed.style.transform = transform;
+      }
+
+      function endDrag() {
+        if (!state.dragging) return;
+        const delta = state.currentY - state.startY;
+        const threshold = screen.clientHeight * 0.12;
+        if (delta < -threshold && state.index < videos.length - 1) state.index++;
+        if (delta > threshold && state.index > 0) state.index--;
+        state.dragging = false;
+        updateSlide(true);
+      }
+
+      screen.addEventListener("pointerdown", (event) => {
+        if (event.target.closest("input, button")) return;
+        screen.setPointerCapture(event.pointerId);
+        startDrag(event.clientY);
+      });
+      screen.addEventListener("pointermove", (event) => moveDrag(event.clientY));
+      screen.addEventListener("pointerup", endDrag);
+      screen.addEventListener("pointercancel", endDrag);
+      screen.addEventListener("wheel", (event) => {
+        if (Math.abs(event.deltaY) < 18) return;
+        state.index = Math.max(0, Math.min(videos.length - 1, state.index + Math.sign(event.deltaY)));
+        updateSlide(true);
+      }, { passive: true });
+
+      forms.forEach((form) => {
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const input = form.querySelector("input");
+          sendDanmaku(input.value, { source: "self", videoIndex: state.index });
+          input.value = "";
+        });
+      });
+
+      danmakuToggles.forEach((button) => {
+        button.addEventListener("click", () => {
+          state.danmakuVisible = !state.danmakuVisible;
+          syncDanmakuToggle();
+        });
+      });
+
+      commentTriggers.forEach((button) => button.addEventListener("click", openComments));
+      closeComments.addEventListener("click", closeCommentSheet);
+      commentBackdrop.addEventListener("click", closeCommentSheet);
+
+      commentForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = commentInput.value.trim();
+        if (!value) return;
+        addUserComment(value);
+        commentInput.value = "";
+      });
+
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+        updateSlide(false);
+      });
+
+      resizeCanvas();
+      updateSlide(false);
+      syncDanmakuToggle();
+      requestAnimationFrame(animate);
+
+      const demoIndexByVideo = videos.map(() => 0);
+      setInterval(() => {
+        sendViewerDanmaku(state.index);
+        if (Math.random() < 0.35) setTimeout(() => sendViewerDanmaku(state.index), 420);
+      }, 1500);
+    </script>
+  </body>
+</html>
